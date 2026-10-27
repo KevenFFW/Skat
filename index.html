@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Skatliste</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: en papirlist. Pointtavle med tre spillere øverst, derefter selve listen med nyeste spil først. Nyt spil åbner som et fuldskærmsark. */
+:root{
+  --bg:#E8ECE9; --surface:#F6F8F6; --ink:#14201A; --muted:#566860; --line:#C6CFCA;
+  --accent:#1D5C45; --accent-ink:#F3F8F5; --chip:#DCE3DF; --pos:#1D5C45; --neg:#B3261E; --red:#B3261E;
+  --font:'Familjen Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1713; --surface:#15221C; --ink:#E3EBE6; --muted:#8FA398; --line:#27382F;
+    --accent:#62B896; --accent-ink:#08140E; --chip:#1E2E26; --pos:#62B896; --neg:#F2766C; --red:#F2766C;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1713; --surface:#15221C; --ink:#E3EBE6; --muted:#8FA398; --line:#27382F;
+  --accent:#62B896; --accent-ink:#08140E; --chip:#1E2E26; --pos:#62B896; --neg:#F2766C; --red:#F2766C;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink); font-family:var(--font); font-size:16px; line-height:1.4;
+  padding-block:20px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:30px;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--muted);font-size:14px}
+.banner{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  background:var(--chip);border-radius:6px;padding:10px 12px;font-size:14px;color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:10px 14px;font-weight:600;min-height:44px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.small{min-height:36px;padding:6px 10px;font-size:14px;font-weight:500}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.danger{border-color:var(--neg);color:var(--neg)}
+.board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.pl{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.pl .tags{min-height:20px;display:flex;gap:4px;flex-wrap:wrap}
+.tag{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:4px;background:var(--chip);color:var(--muted)}
+.tag.lead{background:var(--accent);color:var(--accent-ink)}
+.nm{width:100%;border:0;border-bottom:1px dashed var(--line);background:transparent;color:var(--ink);font:inherit;font-weight:600;font-size:17px;padding:2px 0;border-radius:0;min-width:0}
+.tot{font-family:var(--mono);font-weight:600;font-size:clamp(22px,7.2vw,34px);line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.tot.neg{color:var(--neg)}
+.stat{font-size:12px;color:var(--muted)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.actions .primary{flex:1 1 160px}
+.sheet-wrap{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow-x:auto}
+table{width:100%;border-collapse:collapse;table-layout:fixed;min-width:340px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:middle;text-align:left}
+th{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+th.c,td.c{text-align:right}
+td.n{font-family:var(--mono);color:var(--muted);font-size:13px;width:34px}
+td.c{font-family:var(--mono);font-weight:500;font-size:13px;font-variant-numeric:tabular-nums;width:20%;padding-left:3px;padding-right:3px}
+td.c.pos{color:var(--pos)} td.c.neg{color:var(--neg)} td.c.dim{color:var(--muted);font-weight:500}
+td.x{width:46px;text-align:right;padding-right:6px}
+td.g{font-weight:600;font-size:15px}
+td.g .sub{font-weight:400;font-size:12px;line-height:1.3;margin-top:2px}
+.red{color:var(--red)}
+tfoot td{border-bottom:0;font-weight:700;background:var(--chip)}
+tfoot td:first-child{border-bottom-left-radius:7px}
+.xb{border:0;background:transparent;color:var(--muted);font-size:20px;line-height:1;padding:6px;min-width:36px;min-height:36px;border-radius:6px}
+.xb.ask{font-size:12px;font-weight:600;color:var(--neg);border:1px solid var(--neg);padding:4px 6px}
+.empty{padding:28px 16px;text-align:center;color:var(--muted)}
+.settle{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.sline{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.sline strong{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.settings{display:flex;flex-direction:column;gap:8px}
+.txt{font:inherit;font-size:18px;width:100%;min-height:48px;padding:6px 12px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
+.pill.small{min-height:44px;font-size:14px;font-weight:500}
+td.c.decl{font-weight:700}
+.foot{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.note{font-size:13px;color:var(--muted)}
+/* arket */
+.overlay{position:fixed;inset:0;background:var(--bg);overflow-y:auto;z-index:20;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.form{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:18px;padding-block:20px 0}
+.form h2{margin:0;font-size:22px}
+.fld{display:flex;flex-direction:column;gap:8px}
+.lbl{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.pills{display:flex;flex-wrap:wrap;gap:8px}
+.pill{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:9px 14px;min-height:44px;font-weight:600;min-width:0}
+.pill.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.pill.on .red{color:inherit}
+.pill[disabled]{opacity:.5}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.step{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+.step button{border:0;background:transparent;width:44px;height:44px;font-size:22px}
+.step output{min-width:36px;text-align:center;font-family:var(--mono);font-weight:600;font-size:18px}
+input.num{font:inherit;font-family:var(--mono);font-size:18px;width:110px;min-height:44px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
+.bar{position:sticky;bottom:0;margin-inline:-16px;padding:12px 16px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px));
+  background:var(--surface);border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.pv{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.pv .big{font-family:var(--mono);font-weight:600;font-size:26px;font-variant-numeric:tabular-nums}
+.pv .how{font-size:14px;color:var(--muted)}
+.bar .btns{display:flex;gap:8px}
+.bar .btns .primary{flex:1}
+@media (prefers-reduced-motion:no-preference){.pill,.btn{transition:background .12s,border-color .12s}}
+</style>
+
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}img{max-width:100%}</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="overlay" id="ov" hidden></div>
+
+<script>
+(function(){
+var KEY='skatliste-v1';
+var SUITS={
+  D:{sym:'♦︎',name:'Ruder',base:9,red:true},
+  H:{sym:'♥︎',name:'Hjerter',base:10,red:true},
+  S:{sym:'♠︎',name:'Spar',base:11,red:false},
+  C:{sym:'♣︎',name:'Klør',base:12,red:false}
+};
+var NULLS={
+  'null':{name:'Null',v:23},
+  hand:{name:'Null hånd',v:35},
+  ouvert:{name:'Null ouvert',v:46},
+  ouvertHand:{name:'Null ouvert hånd',v:59}
+};
+var FLAGS=[
+  ['hand','Hånd'],['schn','Schneider'],['schw','Schwarz'],
+  ['annSchn','Meldt schneider'],['annSchw','Meldt schwarz'],['ouvert','Ouvert']
+];
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function kr(n){var k=Math.round(Math.abs(n)/100);
+  return String(k).replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
+function fmt(n){return n>0?'+'+kr(n):(n<0?'−'+kr(n):'0');}
+function tot(n){return n<0?'−'+kr(n):kr(n);}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+
+function mk(pi,o){
+  var g={id:uid(),pi:pi,kind:'suit',suit:'H',jacks:1,withJ:true,hand:false,schn:false,schw:false,
+    annSchn:false,annSchw:false,ouvert:false,nullVar:'null',bid:0,won:true};
+  for(var k in o){g[k]=o[k];}
+  return g;
+}
+function sample(){
+  return {names:['Anna','Bo','Carsten'],startDealer:0,sample:true,rounds:[
+    mk(0,{kind:'suit',suit:'H',jacks:1,withJ:true}),
+    mk(1,{kind:'null',nullVar:'null'}),
+    mk(2,{kind:'suit',suit:'S',jacks:1,withJ:false,won:false}),
+    mk(0,{kind:'suit',suit:'C',jacks:2,withJ:true,schn:true})
+  ]};
+}
+function load(){
+  try{
+    var r=localStorage.getItem(KEY);
+    if(r){var o=JSON.parse(r);
+      if(o&&Array.isArray(o.names)&&o.names.length===3&&Array.isArray(o.rounds)){
+        return o;}}
+  }catch(e){}
+  return sample();
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+
+/* Spilværdi efter ISkO-listen. Tabt spil giver minus to gange værdien. */
+function calc(g){
+  if(g.kind==='pass'){return {value:0,delta:0,won:null,mult:0,base:0,overbid:false};}
+  var won=g.won,value,mult=0,base=0,overbid=false;
+  if(g.kind==='null'){
+    value=NULLS[g.nullVar].v;
+    if(g.bid&&g.bid>value){won=false;overbid=true;}
+  }else{
+    base=g.kind==='grand'?24:SUITS[g.suit].base;
+    mult=g.jacks+1+(g.hand?1:0)+(g.schn?1:0)+(g.schw?1:0)+(g.annSchn?1:0)+(g.annSchw?1:0)+(g.ouvert?1:0);
+    value=base*mult;
+    if(g.bid&&value<g.bid){mult=Math.ceil(g.bid/base);value=base*mult;won=false;overbid=true;}
+  }
+  return {value:value,delta:won?value:-2*value,won:won,mult:mult,base:base,overbid:overbid};
+}
+/* Penge i øre, hver betaling rundes op til hele kroner.
+   Penge i øre: hver modstander betaler spilleren værdien gange prisen ved vundet spil.
+   Ved tabt spil betaler spilleren hver modstander det samme, eller det dobbelte hvis det er slået til. */
+function unitOf(g,c){
+  var pts=Math.floor((c.value+5)/10);
+  return (c.won?Math.ceil(pts/2):pts)*100;
+}
+function money(g){
+  var m=[0,0,0];
+  if(g.kind==='pass'){return m;}
+  var c=calc(g);
+  var unit=unitOf(g,c);
+  for(var i=0;i<3;i++){
+    if(i===g.pi){m[i]=(c.won?2:-2)*unit;}
+    else{m[i]=(c.won?-1:1)*unit;}
+  }
+  return m;
+}
+function totals(){
+  var t=[0,0,0];
+  S.rounds.forEach(function(g){var m=money(g);for(var i=0;i<3;i++){t[i]+=m[i];}});
+  return t;
+}
+function settle(t){
+  var cr=[],db=[],out=[];
+  for(var i=0;i<3;i++){
+    if(t[i]>0){cr.push({i:i,a:t[i]});}
+    else if(t[i]<0){db.push({i:i,a:-t[i]});}
+  }
+  var x=0,y=0;
+  while(x<db.length&&y<cr.length){
+    var a=Math.min(db[x].a,cr[y].a);
+    if(a>0){out.push({from:db[x].i,to:cr[y].i,a:a});}
+    db[x].a-=a;cr[y].a-=a;
+    if(db[x].a<=0){x++;}
+    if(y<cr.length&&cr[y].a<=0){y++;}
+  }
+  return out;
+}
+function stats(i){
+  var p=0,w=0;
+  S.rounds.forEach(function(g){
+    if(g.kind!=='pass'&&g.pi===i){p++;if(calc(g).won){w++;}}
+  });
+  return {p:p,w:w};
+}
+function symHtml(suit){var s=SUITS[suit];return '<span class="'+(s.red?'red':'')+'">'+s.sym+'</span>';}
+function labelOf(g){
+  if(g.kind==='pass'){return {main:'Alle passede',sub:''};}
+  var calcd=calc(g);
+  if(g.kind==='null'){return {main:NULLS[g.nullVar].name,sub:'Værdi '+calcd.value+(calcd.overbid?' · overbudt':'')};}
+  var head=g.kind==='grand'?'Grand':symHtml(g.suit)+' '+SUITS[g.suit].name;
+  var parts=[(g.withJ?'Med ':'Uden ')+g.jacks];
+  FLAGS.forEach(function(f){if(g[f[0]]){parts.push(f[1].toLowerCase());}});
+  parts.push('værdi '+calcd.value);
+  if(calcd.overbid){parts.push('overbudt');}
+  return {main:head,sub:parts.join(' · ')};
+}
+
+var S=load();
+var F=null;
+var confirmDel=null,confirmReset=false;
+var app=document.getElementById('app');
+var ov=document.getElementById('ov');
+
+function dealer(){return (S.startDealer+S.rounds.length)%3;}
+
+function render(){
+  var t=totals();
+  var max=Math.max(t[0],t[1],t[2]);
+  var leaders=t.filter(function(x){return x===max;}).length;
+  var played=S.rounds.some(function(g){return g.kind!=='pass';});
+  var d=dealer();
+  var h='<header><h1>Skatliste</h1><span class="sub">Tre spillere · spil om penge</span></header>';
+  if(S.sample){
+    h+='<div class="banner"><span>Eksempeldata. Start en ny aften med jeres egne navne, før I spiller på rigtigt.</span><button class="btn small" data-act="clearSample">Start ny aften</button></div>';
+  }
+  h+='<section class="board" aria-label="Pointtavle">';
+  for(var i=0;i<3;i++){
+    var st=stats(i);
+    h+='<div class="pl"><div class="tags">'+
+      (i===d?'<span class="tag">Giver</span>':'')+
+      (played&&leaders===1&&t[i]===max?'<span class="tag lead">Fører</span>':'')+
+      '</div><input class="nm" data-i="'+i+'" value="'+esc(S.names[i])+'" aria-label="Navn på spiller '+(i+1)+'" maxlength="20">'+
+      '<div class="tot'+(t[i]<0?' neg':'')+'">'+tot(t[i])+'</div>'+
+      '<div class="stat">kr. · '+st.p+' spil · '+st.w+' vundet</div></div>';
+  }
+  h+='</section>';
+  var sl=settle(t);
+  if(sl.length){
+    h+='<section class="settle" aria-label="Afregning"><span class="lbl">Afregning lige nu</span>';
+    sl.forEach(function(x){h+='<div class="sline"><span>'+esc(S.names[x.from])+' betaler '+esc(S.names[x.to])+'</span><strong>'+kr(x.a)+' kr.</strong></div>';});
+    h+='</section>';
+  }
+
+  h+='<div class="actions"><button class="btn primary" data-act="open">Nyt spil</button>'+
+     '<button class="btn" data-act="pass">Alle passede</button></div>';
+
+  h+='<section class="sheet-wrap">';
+  if(!S.rounds.length){
+    h+='<div class="empty">Ingen spil endnu. Tryk på Nyt spil, når første hold er spillet.</div>';
+  }else{
+    h+='<table><thead><tr><th>#</th><th>Spil</th>';
+    for(var j=0;j<3;j++){h+='<th class="c">'+esc(S.names[j])+'</th>';}
+    h+='<th></th></tr></thead><tbody>';
+    for(var r=S.rounds.length-1;r>=0;r--){
+      var g=S.rounds[r],mn=money(g),lb=labelOf(g);
+      h+='<tr><td class="n">'+(r+1)+'</td><td class="g">'+lb.main+(lb.sub?'<div class="sub">'+lb.sub+'</div>':'')+'</td>';
+      for(var k=0;k<3;k++){
+        if(g.kind==='pass'){h+='<td class="c dim">·</td>';}
+        else{h+='<td class="c '+(mn[k]>=0?'pos':'neg')+(k===g.pi?' decl':'')+'">'+fmt(mn[k])+'</td>';}
+      }
+      h+='<td class="x">'+(confirmDel===g.id
+        ?'<button class="xb ask" data-act="del" data-id="'+g.id+'">Slet</button>'
+        :'<button class="xb" data-act="del" data-id="'+g.id+'" aria-label="Slet spil '+(r+1)+'">×</button>')+'</td></tr>';
+    }
+    h+='</tbody><tfoot><tr><td></td><td>Sum</td>';
+    for(var m=0;m<3;m++){h+='<td class="c">'+tot(t[m])+'</td>';}
+    h+='<td></td></tr></tfoot></table>';
+  }
+  h+='</section>';
+  h+='<div class="foot">'+
+    '<button class="btn small" data-act="undo"'+(S.rounds.length?'':' disabled')+'>Fortryd sidste</button>'+
+    '<button class="btn small" data-act="dealer">Skift giver</button>'+
+    '<button class="btn small" data-act="setup">Ny aften</button>'+
+    '</div>';
+  h+='<p class="note">Spillets værdi divideres med 10 og rundes til nærmeste hele tal, så 22 og 33 giver 2 og 3, mens 36 giver 4. Vundet spil: hver modstander betaler halvdelen af de point, rundet op til hele kroner. Tabt spil: spilleren betaler alle pointene til hver modstander. Er budet højere end spillets værdi, regnes spillet som tabt. Listen gemmes i denne browser.</p>';
+  app.innerHTML=h;
+}
+
+/* spilark */
+function openForm(){
+  F={pi:-1,game:'H',jacks:1,withJ:true,hand:false,schn:false,schw:false,annSchn:false,annSchw:false,
+     ouvert:false,nullVar:'null',bid:'',won:true};
+  renderForm();
+  ov.hidden=false;
+  ov.scrollTop=0;
+}
+function closeForm(){F=null;SU=null;ov.hidden=true;ov.innerHTML='';}
+/* ny aften: skriv de tre navne */
+var SU=null;
+function openSetup(){
+  SU={names:['','',''],dealer:0};
+  renderSetup();
+  ov.hidden=false;
+  ov.scrollTop=0;
+}
+function renderSetup(){
+  var h='<div class="form"><h2>Ny aften</h2>'+
+    '<p class="note">Den nuværende liste ryddes, når I starter.</p>'+
+    '<div class="fld"><span class="lbl">Spillere</span>';
+  for(var i=0;i<3;i++){
+    h+='<input class="txt sn" id="sn'+i+'" data-i="'+i+'" value="'+esc(SU.names[i])+'" placeholder="Spiller '+(i+1)+'" maxlength="20" aria-label="Navn på spiller '+(i+1)+'" autocomplete="off">';
+  }
+  h+='</div><div class="fld"><span class="lbl">Første giver</span><div class="pills">';
+  for(var j=0;j<3;j++){
+    h+='<button class="pill'+(SU.dealer===j?' on':'')+'" data-act="sdeal" data-i="'+j+'">'+esc(SU.names[j].trim()||('Spiller '+(j+1)))+'</button>';
+  }
+  h+='</div></div><div class="bar"><div class="btns"><button class="btn" data-act="close">Annuller</button>'+
+    '<button class="btn primary" data-act="start">Start aften</button></div></div></div>';
+  ov.innerHTML=h;
+}
+function startNight(){
+  S.names=SU.names.map(function(n,i){return n.trim()||('Spiller '+(i+1));});
+  S.startDealer=SU.dealer;
+  S.rounds=[];S.sample=false;confirmDel=null;
+  save();closeForm();render();
+}
+function kindOf(){return F.game==='N'?'null':(F.game==='G'?'grand':'suit');}
+function normalize(){
+  if(F.ouvert){F.hand=true;F.annSchn=true;F.annSchw=true;}
+  if(F.annSchw){F.annSchn=true;}
+  if(F.annSchn){F.hand=true;}
+  if(F.won){
+    if(F.annSchn){F.schn=true;}
+    if(F.annSchw){F.schw=true;}
+  }
+  if(F.schw){F.schn=true;}
+}
+function toggle(k){
+  var v=!F[k];
+  F[k]=v;
+  if(!v){
+    var dep={hand:['annSchn','annSchw','ouvert'],annSchn:['annSchw','ouvert'],annSchw:['ouvert'],schn:['schw']};
+    (dep[k]||[]).forEach(function(x){F[x]=false;});
+  }
+  normalize();
+}
+function formGame(){
+  var k=kindOf();
+  return {pi:F.pi,kind:k,suit:(k==='suit'?F.game:'H'),jacks:F.jacks,withJ:F.withJ,hand:F.hand,schn:F.schn,schw:F.schw,
+    annSchn:F.annSchn,annSchw:F.annSchw,ouvert:F.ouvert,nullVar:F.nullVar,bid:parseInt(F.bid,10)||0,won:F.won};
+}
+function renderForm(){
+  var k=kindOf();
+  var h='<div class="form"><h2>Nyt spil</h2>';
+  h+='<div class="fld"><span class="lbl">Spiller</span><div class="pills">';
+  for(var i=0;i<3;i++){h+='<button class="pill'+(F.pi===i?' on':'')+'" data-act="pl" data-i="'+i+'">'+esc(S.names[i])+'</button>';}
+  h+='</div></div>';
+  h+='<div class="fld"><span class="lbl">Spil</span><div class="pills">';
+  ['D','H','S','C'].forEach(function(s){
+    h+='<button class="pill'+(F.game===s?' on':'')+'" data-act="game" data-v="'+s+'" aria-label="'+SUITS[s].name+'">'+symHtml(s)+' '+SUITS[s].name+'</button>';
+  });
+  h+='<button class="pill'+(F.game==='G'?' on':'')+'" data-act="game" data-v="G">Grand</button>';
+  h+='<button class="pill'+(F.game==='N'?' on':'')+'" data-act="game" data-v="N">Null</button>';
+  h+='</div></div>';
+  if(k==='null'){
+    h+='<div class="fld"><span class="lbl">Type</span><div class="pills">';
+    Object.keys(NULLS).forEach(function(n){
+      h+='<button class="pill'+(F.nullVar===n?' on':'')+'" data-act="nv" data-v="'+n+'">'+NULLS[n].name+' ('+NULLS[n].v+')</button>';
+    });
+    h+='</div></div>';
+  }else{
+    h+='<div class="fld"><span class="lbl">Knægte i træk</span><div class="row">';
+    h+='<div class="pills"><button class="pill'+(F.withJ?' on':'')+'" data-act="with" data-v="1">Med</button>'+
+       '<button class="pill'+(!F.withJ?' on':'')+'" data-act="with" data-v="0">Uden</button></div>';
+    h+='<div class="step"><button data-act="jdec" aria-label="Færre">−</button><output id="jv">'+F.jacks+'</output><button data-act="jinc" aria-label="Flere">+</button></div>';
+    h+='</div></div>';
+    h+='<div class="fld"><span class="lbl">Till\u00E6g</span><div class="pills">';
+    FLAGS.forEach(function(f){
+      h+='<button class="pill'+(F[f[0]]?' on':'')+'" data-act="tog" data-k="'+f[0]+'" aria-pressed="'+(F[f[0]]?'true':'false')+'">'+f[1]+'</button>';
+    });
+    h+='</div></div>';
+  }
+  h+='<div class="fld"><label class="lbl" for="bid">Højeste bud (valgfrit)</label><input class="num" id="bid" type="number" inputmode="numeric" min="0" max="999" value="'+esc(F.bid)+'" placeholder="fx 36"></div>';
+  h+='<div class="fld"><span class="lbl">Resultat</span><div class="pills">'+
+     '<button class="pill'+(F.won?' on':'')+'" data-act="won" data-v="1">Vundet</button>'+
+     '<button class="pill'+(!F.won?' on':'')+'" data-act="won" data-v="0">Tabt</button></div></div>';
+  h+='<div class="bar"><div class="pv" id="pv"></div><div class="btns"><button class="btn" data-act="close">Annuller</button>'+
+     '<button class="btn primary" data-act="save" id="sv">Gem spil</button></div></div></div>';
+  ov.innerHTML=h;
+  updatePreview();
+}
+function updatePreview(){
+  var pv=document.getElementById('pv'),sv=document.getElementById('sv');
+  if(!pv||!F){return;}
+  var g=formGame(),c=calc(g),how;
+  if(g.kind==='null'){how=NULLS[g.nullVar].name+' = '+c.value;}
+  else{how=c.base+' × '+c.mult+' = '+c.value+' ('+(g.withJ?'med ':'uden ')+g.jacks+', spil '+(g.jacks+1)+')';}
+  if(c.overbid){how+=' · overbudt, regnes som tabt';}
+  var mn=money(g),who=g.pi>=0?S.names[g.pi]:'Spilleren';
+  var per=unitOf(g,c);
+  how+=' point · '+(c.won?'hver modstander betaler ':who+' betaler hver modstander ')+kr(per)+' kr.';
+  pv.innerHTML='<span class="big '+(!c.won?'red':'')+'">'+fmt((c.won?2:-2)*per)+' kr.</span><span class="how">'+esc(how)+'</span>';
+  if(sv){sv.disabled=F.pi<0;}
+}
+function saveGame(){
+  if(F.pi<0){return;}
+  var g=formGame();
+  g.id=uid();
+  if(g.kind==='null'){
+    g.hand=g.schn=g.schw=g.annSchn=g.annSchw=g.ouvert=false;
+  }
+  S.rounds.push(g);
+  confirmDel=null;
+  save();closeForm();render();
+}
+
+document.addEventListener('click',function(e){
+  var el=e.target.closest('[data-act]');
+  if(!el){return;}
+  var a=el.getAttribute('data-act');
+  var v=el.getAttribute('data-v');
+  switch(a){
+    case 'open':openForm();return;
+    case 'close':closeForm();return;
+    case 'save':saveGame();return;
+    case 'pl':F.pi=parseInt(el.getAttribute('data-i'),10);break;
+    case 'game':
+      F.game=v;
+      if(v==='G'&&F.jacks>4){F.jacks=4;}
+      break;
+    case 'nv':F.nullVar=v;break;
+    case 'with':F.withJ=v==='1';break;
+    case 'jinc':F.jacks=Math.min(F.game==='G'?4:11,F.jacks+1);break;
+    case 'jdec':F.jacks=Math.max(1,F.jacks-1);break;
+    case 'tog':toggle(el.getAttribute('data-k'));break;
+    case 'won':F.won=v==='1';normalize();break;
+    case 'pass':
+      S.rounds.push({id:uid(),kind:'pass',pi:-1});
+      confirmDel=null;save();render();return;
+    case 'undo':
+      S.rounds.pop();confirmDel=null;save();render();return;
+    case 'del':
+      var id=el.getAttribute('data-id');
+      if(confirmDel===id){
+        S.rounds=S.rounds.filter(function(g){return g.id!==id;});
+        confirmDel=null;save();render();
+      }else{
+        confirmDel=id;render();
+        setTimeout(function(){if(confirmDel===id){confirmDel=null;render();}},4000);
+      }
+      return;
+    case 'setup':openSetup();return;
+    case 'start':startNight();return;
+    case 'sdeal':
+      SU.dealer=parseInt(el.getAttribute('data-i'),10);
+      var sc2=ov.scrollTop;renderSetup();ov.scrollTop=sc2;return;
+    case 'dealer':S.startDealer=(S.startDealer+1)%3;save();render();return;
+    case 'clearSample':openSetup();return;
+    case 'reset':confirmReset=true;render();return;
+    case 'resetNo':confirmReset=false;render();return;
+    case 'resetYes':S.rounds=[];S.sample=false;confirmReset=false;save();render();return;
+  }
+  if(F){var sc=ov.scrollTop;renderForm();ov.scrollTop=sc;}
+});
+document.addEventListener('input',function(e){
+  var t=e.target;
+  if(t.classList&&t.classList.contains('nm')){
+    S.names[parseInt(t.getAttribute('data-i'),10)]=t.value;
+    save();
+    var ths=app.querySelectorAll('th.c');
+    var i=parseInt(t.getAttribute('data-i'),10);
+    if(ths[i]){ths[i].textContent=t.value;}
+  }else if(t.classList&&t.classList.contains('sn')&&SU){
+    SU.names[parseInt(t.getAttribute('data-i'),10)]=t.value;
+  }else if(t.id==='bid'&&F){
+    F.bid=t.value;updatePreview();
+  }
+});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&(F||SU)){closeForm();}});
+render();
+})();
+</script>
+</body>
+</html>
